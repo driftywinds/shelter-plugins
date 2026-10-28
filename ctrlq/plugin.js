@@ -1,45 +1,44 @@
 (function (exports) {
   "use strict";
 
+  const TAG = "[ctrl-q-close]";
+
   async function closeWindow() {
     const T = window.__TAURI__;
-
-    try {
-      // Tauri v2
-      if (T && T.window && typeof T.window.getCurrentWindow === "function") {
-        await T.window.getCurrentWindow().close();
-        return;
-      }
-      // Tauri v2 (webviewWindow namespace)
-      if (T && T.webviewWindow && typeof T.webviewWindow.getCurrentWebviewWindow === "function") {
-        await T.webviewWindow.getCurrentWebviewWindow().close();
-        return;
-      }
-      // Tauri v1
-      if (T && T.window && T.window.appWindow) {
-        await T.window.appWindow.close();
-        return;
-      }
-      if (T && T.window && typeof T.window.getCurrent === "function") {
-        await T.window.getCurrent().close();
-        return;
-      }
-    } catch (e) {
-      console.warn("[ctrl-q-close] Tauri close failed, falling back", e);
+    if (!T) {
+      console.error(TAG, "window.__TAURI__ is missing, not running inside Dorion?");
+      return;
     }
 
+    // 1. Dorion's own backend command (src-tauri/src/functionality/window.rs).
+    //    Saves window state, then closes the native window, or hides it to the
+    //    tray if "minimize to tray" is enabled in Dorion's settings.
     try {
-      if (window.DiscordNative && DiscordNative.window && typeof DiscordNative.window.close === "function") {
-        DiscordNative.window.close();
-        return;
-      }
+      await T.core.invoke("close");
+      return;
     } catch (e) {
-      console.warn("[ctrl-q-close] DiscordNative close failed, falling back", e);
+      console.warn(TAG, "invoke('close') failed", e);
     }
 
-    // Last resort: in Dorion this only kills the webview, not the window.
-    console.warn("[ctrl-q-close] no native window API found, using window.close()");
-    window.close();
+    // 2. Tauri's own window API (only works if the capability allows it)
+    try {
+      await T.window.getCurrentWindow().close();
+      return;
+    } catch (e) {
+      console.warn(TAG, "window API close failed", e);
+    }
+
+    // 3. Hard exit via the process plugin
+    try {
+      await T.process.exit(0);
+      return;
+    } catch (e) {
+      console.warn(TAG, "process.exit failed", e);
+    }
+
+    // Deliberately no window.close() fallback: in Dorion it only destroys the
+    // webview and leaves an empty native window behind.
+    console.error(TAG, "all close methods failed");
   }
 
   function onKeyDown(e) {
