@@ -1,5 +1,5 @@
 {
   "name": "Ctrl+Q to Close",
   "author": "drifty",
-  "description": "Closes the Discord window when you press Ctrl+Q."
+  "description": "Closes the client window (tested in Dorion) when you press Ctrl+Q."
 }
